@@ -63,7 +63,7 @@ pytestmark = [
     pytest.mark.integration,
     pytest.mark.skipif(
         not os.environ.get("HF_TOKEN"),
-        reason="HF_TOKEN environment variable not set"
+        reason="HF_TOKEN environment variable not set (use: export HF_TOKEN=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)"
     )
 ]
 
@@ -103,7 +103,7 @@ def download_config(tmp_path):
     """Create download config for distilgpt2."""
     config = f"""
 huggingface:
-  token: "${{os.environ.get('HF_TOKEN')}}"
+  token: "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"
 
 models:
   - repo: "distilgpt2"
@@ -594,7 +594,7 @@ pytest
 
 Run real end-to-end tests with actual model downloads and training:
 ```bash
-export HF_TOKEN="your_token_here"
+export HF_TOKEN="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"
 pytest -m integration -v
 ```
 

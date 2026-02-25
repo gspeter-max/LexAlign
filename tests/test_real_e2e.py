@@ -149,7 +149,7 @@ def test_dpo_align_distilgpt2(download_config, sample_finetune_data, sample_dpo_
     """Test DPO alignment of fine-tuned distilgpt2 (1 step)."""
     from download import cli as download_cli
     from finetune import cli as finetune_cli
-    from align import cli as align_cli
+    from align import align as align_cli
 
     # Download model
     download_runner = CliRunner()
@@ -227,7 +227,7 @@ def test_complete_workflow_output_verification(download_config, sample_finetune_
     """Test complete workflow and verify model outputs change at each stage."""
     from download import cli as download_cli
     from finetune import cli as finetune_cli
-    from align import cli as align_cli
+    from align import align as align_cli
     from transformers import AutoModelForCausalLM, AutoTokenizer
     import torch
 

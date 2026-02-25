@@ -1,14 +1,11 @@
 from pathlib import Path
 from datetime import datetime
-from typing import Optional
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments
 from trl import SFTTrainer
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeRemainingColumn
 
 from lexalign.finetuner.dataset_prep import DatasetPreparer, DatasetError
 from lexalign.finetuner.lora_config import LoraConfigBuilder
-from lexalign.finetuner.checkpoint import CheckpointManager
 
 
 class TrainerError(Exception):
@@ -182,8 +179,8 @@ class FinetuneTrainer:
                 dataset_text_field=dataset_config.get("text_field", "text"),
                 peft_config=lora_config,
                 tokenizer=tokenizer,
-                max_seq_length=512,
-                packing=False,
+                max_seq_length=training.get("max_seq_length", 512),
+                packing=training.get("packing", False),
             )
 
             # Train
@@ -257,8 +254,8 @@ class FinetuneTrainer:
                 dataset_text_field=dataset_config.get("text_field", "text"),
                 peft_config=lora_config,
                 tokenizer=tokenizer,
-                max_seq_length=512,
-                packing=False,
+                max_seq_length=training.get("max_seq_length", 512),
+                packing=training.get("packing", False),
             )
 
             # Resume from checkpoint

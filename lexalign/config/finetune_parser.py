@@ -28,6 +28,8 @@ class FinetuneConfigParser:
             "weight_decay": 0.01,
             "save_steps": 500,
             "max_steps": None,
+            "max_seq_length": 512,
+            "packing": False,
         },
     }
 

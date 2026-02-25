@@ -36,6 +36,8 @@ training:
   num_epochs: 3
   warmup_steps: 100
   weight_decay: 0.01
+  max_seq_length: 512              # Maximum sequence length
+  packing: false                   # Enable packing for efficiency (experimental)
 
   # Checkpointing
   save_steps: 500                  # Save checkpoint every N steps

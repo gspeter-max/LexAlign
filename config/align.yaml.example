@@ -1,0 +1,54 @@
+# config/align.yaml.example
+# LexAlign Alignment Tool - Example Configuration
+# Copy this file to align.yaml and fill in your details
+
+# Model Configuration
+model:
+  path: "./checkpoints/gpt2-finetuned"  # Path to fine-tuned model from finetune.py
+  base_model: "gpt2"                     # Optional: HF repo ID for tokenizer
+
+# Dataset Configuration (Preference Data)
+dataset:
+  path: "./data/preference-dataset"      # Path to preference dataset
+  format: "auto"                         # auto, json, csv, jsonl
+  prompt_field: "prompt"                 # Field containing prompt
+  chosen_field: "chosen"                 # Field containing chosen (better) response
+  rejected_field: "rejected"             # Field containing rejected (worse) response
+  train_split: "train"                   # Dataset split to use
+
+# Alignment Configuration
+alignment:
+  method: "dpo"                          # dpo or gdpo
+  output_dir: "./checkpoints/gpt2-aligned"  # Optional, defaults to ./checkpoints/<model>-aligned-<timestamp>
+
+  # DPO/GDPO parameters
+  beta: 0.1                              # DPO beta parameter (temperature)
+  loss_type: "sigmoid"                   # sigmoid, hinge, or ipo
+
+  # GDPO specific (only used if method: gdpo)
+  group_delay_size: 4                    # Number of responses to rank per prompt
+  group_delay_weight: 0.5                # Weight for group delay loss
+
+  # LoRA for alignment (optional, recommended)
+  use_lora: true
+  lora_r: 16                             # LoRA rank
+  lora_alpha: 32                         # LoRA alpha
+  lora_dropout: 0.05                     # LoRA dropout
+  target_modules:                        # Optional (auto-detected if omitted)
+    - "q_proj"
+    - "v_proj"
+
+  # Training hyperparameters
+  learning_rate: 1e-5
+  batch_size: 4
+  gradient_accumulation_steps: 4
+  num_epochs: 3
+  warmup_steps: 100
+  weight_decay: 0.01
+
+  # Checkpointing
+  save_steps: 500
+  max_steps: null                        # Optional: override epoch-based training
+
+# Hardware
+device: "cuda"                           # cuda or cpu

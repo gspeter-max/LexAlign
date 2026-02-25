@@ -8,6 +8,22 @@ A CLI tool for downloading models and datasets from Hugging Face using declarati
 pip install -e ".[dev]"
 ```
 
+## GPU Installation (CUDA)
+
+By default the install above uses CPU-only PyTorch.
+To enable GPU training, reinstall `torch` with the matching CUDA index URL **after** running the above:
+
+```bash
+# CUDA 12.1 (RTX 30xx/40xx, A100, H100)
+.venv/bin/pip install torch --index-url https://download.pytorch.org/whl/cu121
+
+# CUDA 11.8 (older GPUs)
+.venv/bin/pip install torch --index-url https://download.pytorch.org/whl/cu118
+```
+
+> **macOS note:** QLoRA (`method: qlora`) uses `bitsandbytes` which has limited macOS support.
+> For reliable QLoRA, use a Linux machine with a CUDA GPU.
+
 ## Quick Start
 
 1. Set your Hugging Face token:

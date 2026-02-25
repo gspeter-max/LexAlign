@@ -35,6 +35,7 @@ def test_dpo_trainer_initialization():
     assert wrapper.ref_model is ref_model
     assert wrapper.tokenizer is tokenizer
     assert wrapper.config is config
+    assert wrapper._trainer is None  # not built yet
 
 
 def test_train_passes_dataset_to_dpo_trainer():
@@ -62,3 +63,33 @@ def test_train_passes_dataset_to_dpo_trainer():
         assert call_kwargs["ref_model"] is ref_model
         assert call_kwargs["beta"] == 0.1
         mock_trainer.train.assert_called_once()
+
+
+def test_save_model_reuses_trainer():
+    """save_model() must reuse self._trainer from train() — not create a second DPOTrainer."""
+    config = _make_config()
+    wrapper = DPOTrainerWrapper(Mock(), Mock(), Mock(), config)
+
+    with patch("lexalign.aligner.dpo_trainer.DPOTrainer") as MockDPO:
+        mock_trainer = MagicMock()
+        MockDPO.return_value = mock_trainer
+
+        dataset = [{"prompt": "x", "chosen": "a", "rejected": "b"}]
+        wrapper.train(dataset)
+        wrapper.save_model("/tmp/out")
+
+        # DPOTrainer must be constructed exactly once (in train), not again in save_model
+        assert MockDPO.call_count == 1, (
+            f"DPOTrainer was constructed {MockDPO.call_count} times; expected 1"
+        )
+        mock_trainer.save_model.assert_called_once_with("/tmp/out")
+        wrapper.tokenizer.save_pretrained.assert_called_once_with("/tmp/out")
+
+
+def test_save_model_before_train_raises():
+    """save_model() must raise RuntimeError if called before train()."""
+    config = _make_config()
+    wrapper = DPOTrainerWrapper(Mock(), Mock(), Mock(), config)
+
+    with pytest.raises(RuntimeError, match="train()"):
+        wrapper.save_model("/tmp/out")

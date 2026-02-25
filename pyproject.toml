@@ -34,12 +34,18 @@ dev = [
     "pytest>=7.4.0",
     "pytest-mock>=3.11.0",
 ]
+# GPU training requires reinstalling torch with a CUDA index URL.
+# See README: GPU Installation section for the exact command.
+gpu = []
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+markers = [
+    "gpu: marks tests that require a CUDA GPU (skip by default; run with --run-gpu)",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]

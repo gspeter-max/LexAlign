@@ -1,6 +1,8 @@
 # lexalign/finetuner/lora_config.py
 """LoRA and QLoRA configuration builder for LexAlign."""
 
+import platform
+import warnings
 from typing import Any, Dict, Optional
 
 from peft import LoraConfig, TaskType
@@ -47,6 +49,14 @@ class LoraConfigBuilder:
         Raises:
             ValueError: If bits is not 4 or 8
         """
+        if platform.system() != "Linux":
+            warnings.warn(
+                f"QLoRA (bitsandbytes) has limited support on {platform.system()}. "
+                "For reliable QLoRA quantization, use a Linux machine with a CUDA GPU. "
+                "See: https://github.com/TimDettmers/bitsandbytes#tldr",
+                RuntimeWarning,
+                stacklevel=2,
+            )
         if bits == 4:
             return {"load_in_4bit": True}
         if bits == 8:

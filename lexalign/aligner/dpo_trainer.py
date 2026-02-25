@@ -23,6 +23,7 @@ class DPOTrainerWrapper:
         self.ref_model = ref_model
         self.tokenizer = tokenizer
         self.config = config
+        self._trainer: DPOTrainer | None = None  # set during train()
 
         self._training_args = TrainingArguments(
             output_dir=config["output_dir"],
@@ -42,13 +43,16 @@ class DPOTrainerWrapper:
         """
         Run DPO training on the provided dataset.
 
+        The underlying DPOTrainer is stored as ``self._trainer`` so it can be
+        reused by :meth:`save_model` without creating a second instance.
+
         Args:
             train_dataset: Training dataset with prompt/chosen/rejected columns
         """
         # NOTE: DPOTrainer is constructed here (not in __init__) so that the
         # dataset is passed in and used — previously the dataset argument was
         # silently ignored.
-        trainer = DPOTrainer(
+        self._trainer = DPOTrainer(
             model=self.model,
             ref_model=self.ref_model,
             args=self._training_args,
@@ -57,21 +61,24 @@ class DPOTrainerWrapper:
             tokenizer=self.tokenizer,
             train_dataset=train_dataset,
         )
-        return trainer.train()
+        return self._trainer.train()
 
     def save_model(self, output_dir: str) -> None:
         """Save fine-tuned model and tokenizer.
 
+        Must be called *after* :meth:`train` — reuses the trainer that was
+        created there rather than constructing a fresh (dataset-less) one.
+
         Args:
             output_dir: Directory to save model artifacts
+
+        Raises:
+            RuntimeError: If called before :meth:`train`.
         """
-        # Re-use the same training_args output_dir as a convenience
-        # but allow override via explicit argument.
-        trainer = DPOTrainer(
-            model=self.model,
-            ref_model=self.ref_model,
-            args=self._training_args,
-            tokenizer=self.tokenizer,
-        )
-        trainer.save_model(output_dir)
+        if self._trainer is None:
+            raise RuntimeError(
+                "save_model() called before train(). "
+                "You must call train() first so the DPOTrainer is initialised."
+            )
+        self._trainer.save_model(output_dir)
         self.tokenizer.save_pretrained(output_dir)

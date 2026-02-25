@@ -38,7 +38,9 @@ def cli(config: str, resume: str, device: str, dry_run: bool, verbose: bool):
     if device:
         try:
             device_manager = DeviceManager()
-            ft_config["device"] = device_manager.get_device(device)
+            ft_config["device"], fell_back = device_manager.get_device(device)
+            if fell_back:
+                console.print("[yellow]Warning: CUDA requested but unavailable. Using CPU.[/yellow]")
         except DeviceError as e:
             console.print(f"[red]Device error:[/red] {e}")
             raise click.Abort()

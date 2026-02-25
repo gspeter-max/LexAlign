@@ -87,6 +87,16 @@ class DatasetPreparer:
                 data_files=path,
                 split=split
             )
+
+            # Validate that text_field exists in dataset
+            if text_field not in dataset.column_names:
+                raise DatasetError(
+                    f"Field '{text_field}' not found in dataset. "
+                    f"Available columns: {', '.join(dataset.column_names)}"
+                )
+
             return dataset
+        except DatasetError:
+            raise
         except Exception as e:
             raise DatasetError(f"Failed to load dataset: {e}")

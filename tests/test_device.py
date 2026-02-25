@@ -6,27 +6,30 @@ def test_detect_cuda_when_available(mocker):
     mock_torch.cuda.is_available.return_value = True
 
     manager = DeviceManager()
-    device = manager.detect_device()
+    device, fell_back = manager.detect_device()
 
     assert device == "cuda"
+    assert fell_back is False
 
 def test_detect_cpu_when_cuda_unavailable(mocker):
     mock_torch = mocker.patch('lexalign.utils.device.torch')
     mock_torch.cuda.is_available.return_value = False
 
     manager = DeviceManager()
-    device = manager.detect_device()
+    device, fell_back = manager.detect_device()
 
     assert device == "cpu"
+    assert fell_back is False
 
 def test_override_device_with_cpu(mocker):
     mock_torch = mocker.patch('lexalign.utils.device.torch')
     mock_torch.cuda.is_available.return_value = True
 
     manager = DeviceManager()
-    device = manager.get_device("cpu")
+    device, fell_back = manager.get_device("cpu")
 
     assert device == "cpu"
+    assert fell_back is False
 
 def test_invalid_device_name(mocker):
     mock_torch = mocker.patch('lexalign.utils.device.torch')
@@ -40,6 +43,17 @@ def test_cuda_specification_when_unavailable(mocker):
     mock_torch.cuda.is_available.return_value = False
 
     manager = DeviceManager()
-    device = manager.get_device("cuda")
+    device, fell_back = manager.get_device("cuda")
 
     assert device == "cpu"  # Fallback to CPU
+    assert fell_back is True  # Warning flag set
+
+def test_cuda_available_no_fallback(mocker):
+    mock_torch = mocker.patch('lexalign.utils.device.torch')
+    mock_torch.cuda.is_available.return_value = True
+
+    manager = DeviceManager()
+    device, fell_back = manager.get_device("cuda")
+
+    assert device == "cuda"
+    assert fell_back is False

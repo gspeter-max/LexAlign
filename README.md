@@ -73,6 +73,8 @@ python download.py --config config/downloads.yaml --verbose
 
 Fine-tune downloaded models using LoRA or QLoRA.
 
+> **Security Note:** This tool uses `trust_remote_code=True` when loading tokenizers, which allows models to execute custom code from the Hugging Face Hub. Only fine-tune models from trusted sources.
+
 ### Installation
 
 ```bash

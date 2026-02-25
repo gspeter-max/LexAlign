@@ -46,6 +46,7 @@ def test_load_json_dataset(mocker, tmp_path):
         'lexalign.finetuner.dataset_prep.load_dataset'
     )
     mock_ds = mocker.Mock()
+    mock_ds.column_names = ["text"]  # Mock column_names as list
     mock_load_dataset.return_value = mock_ds
 
     preparer = DatasetPreparer()
@@ -57,3 +58,20 @@ def test_dataset_path_not_found():
     preparer = DatasetPreparer()
     with pytest.raises(DatasetError, match="Dataset path not found"):
         preparer.load_dataset("/nonexistent/path", "auto", "text")
+
+def test_text_field_not_found(mocker, tmp_path):
+    """Test that missing text_field raises clear error."""
+    json_file = tmp_path / "train.json"
+    json_file.write_text('[{"content": "sample1"}, {"content": "sample2"}]')
+
+    mock_ds = mocker.Mock()
+    mock_ds.column_names = ["content"]  # No "text" field
+
+    mock_load_dataset = mocker.patch(
+        'lexalign.finetuner.dataset_prep.load_dataset',
+        return_value=mock_ds
+    )
+
+    preparer = DatasetPreparer()
+    with pytest.raises(DatasetError, match="Field 'text' not found"):
+        preparer.load_dataset(str(json_file), "json", "text")

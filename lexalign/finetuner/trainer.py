@@ -14,7 +14,13 @@ class TrainerError(Exception):
 
 
 class FinetuneTrainer:
-    """Wrapper for TRL SFTTrainer with LoRA/QLoRA support."""
+    """
+    Wrapper for TRL SFTTrainer with LoRA/QLoRA support.
+
+    SECURITY NOTE: This tool uses `trust_remote_code=True` when loading tokenizers,
+    which allows models to execute custom code from the Hugging Face Hub.
+    Only use this with models from trusted sources.
+    """
 
     def __init__(self, config: dict, verbose: bool = False):
         """
@@ -95,9 +101,10 @@ class FinetuneTrainer:
             **model_kwargs
         )
 
-        # Load tokenizer
+        # Load tokenizer - use base_model if specified, otherwise use model_path
+        tokenizer_path = self.config["model"].get("base_model", model_path)
         tokenizer = AutoTokenizer.from_pretrained(
-            model_path,
+            tokenizer_path,
             trust_remote_code=True
         )
 

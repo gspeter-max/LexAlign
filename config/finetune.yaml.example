@@ -1,10 +1,13 @@
 # LexAlign Fine-Tuning Tool - Example Configuration
 # Copy this file to finetune.yaml and fill in your details
 
+# SECURITY NOTE: This tool uses trust_remote_code=True when loading tokenizers.
+# Only fine-tune models from trusted sources.
+
 # Model Configuration
 model:
   path: "./models/gpt2"           # Path to downloaded model
-  base_model: "gpt2"               # Optional: HF repo ID for tokenizer
+  base_model: "gpt2"               # Optional: HF repo ID for tokenizer (used if local tokenizer missing)
 
 # Dataset Configuration
 dataset:

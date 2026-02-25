@@ -9,18 +9,18 @@ class DeviceError(Exception):
 class DeviceManager:
     """Manages device detection and selection."""
 
-    def detect_device(self) -> str:
+    def detect_device(self) -> tuple[str, bool]:
         """
         Auto-detect available device.
 
         Returns:
-            "cuda" if available, else "cpu"
+            Tuple of (device_string, fell_back_from_cuda)
         """
         if torch.cuda.is_available():
-            return "cuda"
-        return "cpu"
+            return "cuda", False
+        return "cpu", False
 
-    def get_device(self, requested: str = None) -> str:
+    def get_device(self, requested: str = None) -> tuple[str, bool]:
         """
         Get device with fallback logic.
 
@@ -28,18 +28,18 @@ class DeviceManager:
             requested: Requested device ("cuda" or "cpu")
 
         Returns:
-            Device string to use
+            Tuple of (device_string, fell_back_from_cuda)
 
         Raises:
             DeviceError: If invalid device name
         """
         if requested is None:
-            return self.detect_device()
+            return self.detect_device(), False
 
         if requested not in ("cuda", "cpu"):
             raise DeviceError(f"Invalid device: {requested}. Use 'cuda' or 'cpu'.")
 
         if requested == "cuda" and not torch.cuda.is_available():
-            return "cpu"  # Fallback
+            return "cpu", True  # Fallback with warning flag
 
-        return requested
+        return requested, False

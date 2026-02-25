@@ -1,6 +1,8 @@
 # lexalign/config/align_parser.py
 import yaml
 from typing import Dict, Any
+from pathlib import Path
+from datetime import datetime
 
 
 class ConfigError(Exception):
@@ -80,6 +82,12 @@ class AlignConfigParser:
             for key, value in defaults.items():
                 if key not in config[section]:
                     config[section][key] = value
+
+        # Generate default output_dir if not specified
+        if "output_dir" not in config["alignment"]:
+            model_name = Path(config["model"]["path"]).name
+            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            config["alignment"]["output_dir"] = f"./checkpoints/{model_name}-aligned-{timestamp}"
 
     def _validate_alignment_params(self, config: Dict[str, Any]):
         """Validate alignment-specific parameters."""

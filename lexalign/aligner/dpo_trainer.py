@@ -1,5 +1,5 @@
 # lexalign/aligner/dpo_trainer.py
-from transformers import Trainer, TrainingArguments
+from transformers import TrainingArguments
 from trl import DPOTrainer
 
 

@@ -9,13 +9,16 @@ from rich.console import Console
 from lexalign.config.align_parser import AlignConfigParser, ConfigError
 from lexalign.utils.device import DeviceManager
 from lexalign.aligner.dataset_prep import PreferenceDataset, DatasetError
+from lexalign.finetuner.checkpoint import CheckpointManager
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from peft import get_peft_model, LoraConfig, TaskType
 
 console = Console()
 
 
 @click.command()
 @click.option("--config", "config_path", required=True, type=click.Path(exists=True), help="Alignment config file")
-@click.option("--resume", "resume_path", default=None, type=click.Path(), help="Resume from checkpoint")
+@click.option("--resume", "resume_path", default=None, type=click.Path(exists=True), help="Resume from checkpoint")
 @click.option("--device", "device_override", default=None, type=click.Choice(["cuda", "cpu"]), help="Override device")
 @click.option("--dry-run", is_flag=True, help="Show config without training")
 @click.option("--verbose", "-v", is_flag=True, help="Verbose output")
@@ -62,6 +65,14 @@ def align(config_path: str, resume_path: str, device_override: str, dry_run: boo
             console.print("[yellow]→ Run: python finetune.py --config config/finetune.yaml[/yellow]")
             raise click.Abort()
 
+        # Check if resuming from checkpoint
+        if resume_path:
+            console.print(f"[cyan]Resuming from checkpoint: {resume_path}[/cyan]")
+            checkpoint_manager = CheckpointManager()
+            resume_step = checkpoint_manager.get_step(resume_path)
+            console.print(f"[cyan]Checkpoint step: {resume_step}[/cyan]")
+            ft_config["alignment"]["resume_from_checkpoint"] = resume_path
+
         # Validate dataset exists
         dataset_path = Path(ft_config["dataset"]["path"])
         if not dataset_path.exists():
@@ -74,14 +85,83 @@ def align(config_path: str, resume_path: str, device_override: str, dry_run: boo
         train_dataset = dataset_prep.load_and_validate(ft_config["dataset"])
         console.print(f"[green]Loaded {len(train_dataset)} preference pairs[/green]")
 
+        # Prepare dataset for DPO format
+        prompt_field = ft_config["dataset"]["prompt_field"]
+        chosen_field = ft_config["dataset"]["chosen_field"]
+        rejected_field = ft_config["dataset"]["rejected_field"]
+
+        # Load model and tokenizer
+        console.print("[cyan]Loading model...[/cyan]")
+        model_path = ft_config["model"]["path"]
+        base_model = ft_config["model"].get("base_model", model_path)
+
+        tokenizer = AutoTokenizer.from_pretrained(
+            base_model if Path(base_model).exists() else model_path,
+            trust_remote_code=True
+        )
+        if tokenizer.pad_token is None:
+            tokenizer.pad_token = tokenizer.eos_token
+
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path,
+            trust_remote_code=True
+        )
+
+        # Create reference model (frozen copy)
+        console.print("[cyan]Creating reference model...[/cyan]")
+        ref_model = AutoModelForCausalLM.from_pretrained(
+            model_path,
+            trust_remote_code=True
+        )
+        for param in ref_model.parameters():
+            param.requires_grad = False
+
+        # Apply LoRA if requested
+        if ft_config["alignment"].get("use_lora", True):
+            console.print("[cyan]Applying LoRA...[/cyan]")
+            lora_config = LoraConfig(
+                r=ft_config["alignment"].get("lora_r", 16),
+                lora_alpha=ft_config["alignment"].get("lora_alpha", 32),
+                lora_dropout=ft_config["alignment"].get("lora_dropout", 0.05),
+                target_modules=ft_config["alignment"].get("target_modules", None),
+                task_type=TaskType.CAUSAL_LM,
+            )
+            model = get_peft_model(model, lora_config)
+            model.print_trainable_parameters()
+
+        # Move to device
+        console.print(f"[cyan]Moving models to {device}...[/cyan]")
+        model.to(device)
+        ref_model.to(device)
+
         # Show training config
         console.print(f"[cyan]Training method:[/cyan] {ft_config['alignment']['method']}")
         console.print(f"[cyan]Device:[/cyan] {device}")
         console.print(f"[cyan]Learning rate:[/cyan] {ft_config['alignment']['learning_rate']}")
         console.print(f"[cyan]Batch size:[/cyan] {ft_config['alignment']['batch_size']}")
+        console.print(f"[cyan]Output dir:[/cyan] {ft_config['alignment']['output_dir']}")
 
-        console.print("[green]Alignment configuration validated successfully![/green]")
-        console.print("[yellow]Note: Training loop implementation in next tasks.[/yellow]")
+        # Initialize trainer based on method
+        console.print("[cyan]Initializing trainer...[/cyan]")
+        if ft_config["alignment"]["method"] == "dpo":
+            from lexalign.aligner.dpo_trainer import DPOTrainerWrapper
+            trainer_wrapper = DPOTrainerWrapper(model, ref_model, tokenizer, ft_config["alignment"])
+        else:  # gdpo
+            from lexalign.aligner.gdpo_trainer import GDPOTrainerWrapper
+            trainer_wrapper = GDPOTrainerWrapper(model, ref_model, tokenizer, ft_config["alignment"])
+
+        # Train
+        console.print("[cyan]Starting alignment training...[/cyan]")
+        console.print("[green]" + "="*50 + "[/green]")
+        train_result = trainer_wrapper.train(train_dataset)
+        console.print("[green]" + "="*50 + "[/green]")
+        console.print("[green]Training completed![/green]")
+
+        # Save model
+        output_dir = ft_config["alignment"]["output_dir"]
+        console.print(f"[cyan]Saving model to {output_dir}...[/cyan]")
+        trainer_wrapper.save_model(output_dir)
+        console.print(f"[green]Model saved successfully![/green]")
 
     except ConfigError as e:
         console.print(f"[red]Configuration error: {e}[/red]")

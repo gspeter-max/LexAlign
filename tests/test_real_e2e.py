@@ -64,3 +64,23 @@ models:
     config_file = tmp_path / "download.yaml"
     config_file.write_text(config)
     return str(config_file)
+
+
+def test_download_distilgpt2(download_config, tmp_path):
+    """Test downloading distilgpt2 model from Hugging Face."""
+    from download import cli
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["--config", download_config])
+
+    # Verify CLI succeeded
+    assert result.exit_code == 0, f"Download failed: {result.output}"
+
+    # Verify model files exist
+    model_dir = tmp_path / "models" / "distilgpt2"
+    assert model_dir.exists(), "Model directory not created"
+    assert (model_dir / "config.json").exists(), "config.json missing"
+    assert (model_dir / "pytorch_model.bin").exists(), "pytorch_model.bin missing"
+
+    # Verify tokenizer files exist
+    assert (model_dir / "tokenizer.json").exists() or (model_dir / "tokenizer_config.json").exists()

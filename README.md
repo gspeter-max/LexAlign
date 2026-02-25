@@ -133,3 +133,51 @@ python finetune.py --config config/finetune.yaml --resume ./checkpoints/model/ch
 # Use CPU instead of GPU
 python finetune.py --config config/finetune.yaml --device cpu
 ```
+
+## Alignment
+
+Align fine-tuned models using DPO (Direct Preference Optimization) or GDPO (Group Delay Policy Optimization) with preference datasets.
+
+### Quick Start
+
+1. Create an alignment configuration:
+```bash
+cp config/align.yaml.example config/align.yaml
+```
+
+2. Edit `config/align.yaml` with your model path and preference dataset.
+
+3. Run alignment:
+```bash
+python align.py --config config/align.yaml
+```
+
+### Configuration
+
+```yaml
+model:
+  path: "./checkpoints/gpt2-finetuned"  # Your fine-tuned model
+
+dataset:
+  path: "./data/preferences"             # Preference dataset
+  prompt_field: "prompt"
+  chosen_field: "chosen"
+  rejected_field: "rejected"
+
+alignment:
+  method: "dpo"                          # dpo or gdpo
+  beta: 0.1
+  learning_rate: 1e-5
+  batch_size: 4
+
+device: "cuda"
+```
+
+### Options
+
+- `--config PATH` - Alignment config file (required)
+- `--resume PATH` - Resume from checkpoint
+- `--device DEVICE` - Override device (cuda/cpu)
+- `--dry-run` - Show config without training
+- `--verbose, -v` - Detailed output
+```

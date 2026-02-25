@@ -143,3 +143,81 @@ device: "cpu"
         assert model is not None
     except Exception as e:
         pytest.fail(f"Failed to load fine-tuned model: {e}")
+
+
+def test_dpo_align_distilgpt2(download_config, sample_finetune_data, sample_dpo_data, tmp_path):
+    """Test DPO alignment of fine-tuned distilgpt2 (1 step)."""
+    from download import cli as download_cli
+    from finetune import cli as finetune_cli
+    from align import cli as align_cli
+
+    # Download model
+    download_runner = CliRunner()
+    download_result = download_runner.invoke(download_cli, ["--config", download_config])
+    assert download_result.exit_code == 0
+
+    model_dir = tmp_path / "models" / "distilgpt2"
+
+    # Fine-tune first
+    ft_config = f"""
+model:
+  path: "{model_dir}"
+
+dataset:
+  path: "{sample_finetune_data}"
+  format: "json"
+  text_field: "text"
+
+training:
+  method: "lora"
+  max_steps: 1
+  max_seq_length: 64
+  batch_size: 1
+  output_dir: "{tmp_path}/checkpoints/finetuned"
+
+device: "cpu"
+"""
+    ft_config_file = tmp_path / "finetune.yaml"
+    ft_config_file.write_text(ft_config)
+
+    ft_runner = CliRunner()
+    ft_result = ft_runner.invoke(finetune_cli, ["--config", str(ft_config_file)])
+    assert ft_result.exit_code == 0, f"Fine-tuning failed: {ft_result.output}"
+
+    # DPO align
+    dpo_config = f"""
+model:
+  path: "{tmp_path}/checkpoints/finetuned"
+
+dataset:
+  path: "{sample_dpo_data}"
+  format: "json"
+  prompt_field: "prompt"
+  chosen_field: "chosen"
+  rejected_field: "rejected"
+
+alignment:
+  method: "dpo"
+  max_steps: 1
+  max_seq_length: 64
+  batch_size: 1
+  learning_rate: 1e-5
+  num_epochs: 1
+  beta: 0.1
+  output_dir: "{tmp_path}/checkpoints/aligned"
+
+device: "cpu"
+"""
+    dpo_config_file = tmp_path / "align.yaml"
+    dpo_config_file.write_text(dpo_config)
+
+    # Run DPO alignment
+    runner = CliRunner()
+    result = runner.invoke(align_cli, ["--config", str(dpo_config_file)])
+
+    # Verify alignment succeeded
+    assert result.exit_code == 0, f"DPO alignment failed: {result.output}"
+
+    # Verify output created
+    output_dir = tmp_path / "checkpoints" / "aligned"
+    assert output_dir.exists(), "Alignment output directory not created"

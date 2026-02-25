@@ -197,3 +197,32 @@ device: "cuda"
 - `--dry-run` - Show config without training
 - `--verbose, -v` - Detailed output
 ```
+
+## Testing
+
+### Unit Tests (Fast)
+
+Run mocked unit tests:
+```bash
+pytest
+```
+
+### Integration Tests (Real E2E)
+
+Run real end-to-end tests with actual model downloads and training:
+```bash
+export HF_TOKEN="your_token_here"
+pytest -m integration -v
+```
+
+**Note:** Integration tests:
+- Require network connection (~60MB download)
+- Use distilgpt2 model (fast download)
+- Take ~2-3 minutes to complete
+- Test real training (1 step each)
+- Verify complete workflow: download → fine-tune → DPO align
+
+Skip integration tests and only run unit tests:
+```bash
+pytest  # Integration tests skipped by default
+```

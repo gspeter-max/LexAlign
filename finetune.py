@@ -57,9 +57,14 @@ def cli(config: str, resume: str, device: str, dry_run: bool, verbose: bool):
 
     # Initialize trainer
     try:
-        trainer = FinetuneTrainer(ft_config)
-        output_dir = trainer.train()
-        console.print(f"[green]Fine-tuning complete![/green] Checkpoints saved to: {output_dir}")
+        trainer = FinetuneTrainer(ft_config, verbose=verbose)
+
+        if resume:
+            output_dir = trainer.resume(resume)
+            console.print(f"[green]Training resumed and complete![/green] Checkpoints saved to: {output_dir}")
+        else:
+            output_dir = trainer.train()
+            console.print(f"[green]Fine-tuning complete![/green] Checkpoints saved to: {output_dir}")
     except TrainerError as e:
         console.print(f"[red]Training error:[/red] {e}")
         raise click.Abort()

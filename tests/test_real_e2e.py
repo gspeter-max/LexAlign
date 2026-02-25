@@ -84,3 +84,62 @@ def test_download_distilgpt2(download_config, tmp_path):
 
     # Verify tokenizer files exist
     assert (model_dir / "tokenizer.json").exists() or (model_dir / "tokenizer_config.json").exists()
+
+
+def test_finetune_distilgpt2(download_config, sample_finetune_data, tmp_path):
+    """Test fine-tuning distilgpt2 with LoRA (1 step)."""
+    from download import cli as download_cli
+    from finetune import cli as finetune_cli
+
+    # First download the model
+    download_runner = CliRunner()
+    download_result = download_runner.invoke(download_cli, ["--config", download_config])
+    assert download_result.exit_code == 0, f"Download failed: {download_result.output}"
+
+    model_dir = tmp_path / "models" / "distilgpt2"
+
+    # Create finetune config
+    config = f"""
+model:
+  path: "{model_dir}"
+
+dataset:
+  path: "{sample_finetune_data}"
+  format: "json"
+  text_field: "text"
+
+training:
+  method: "lora"
+  max_steps: 1
+  max_seq_length: 64
+  batch_size: 1
+  gradient_accumulation_steps: 1
+  learning_rate: 3e-4
+  num_epochs: 1
+  save_steps: 1000
+  output_dir: "{tmp_path}/checkpoints/finetuned"
+
+device: "cpu"
+"""
+    config_file = tmp_path / "finetune.yaml"
+    config_file.write_text(config)
+
+    # Run fine-tuning
+    runner = CliRunner()
+    result = runner.invoke(finetune_cli, ["--config", str(config_file)])
+
+    # Verify training succeeded
+    assert result.exit_code == 0, f"Fine-tuning failed: {result.output}"
+
+    # Verify checkpoint created
+    output_dir = tmp_path / "checkpoints" / "finetuned"
+    assert output_dir.exists(), "Output directory not created"
+    assert (output_dir / "adapter_model.bin").exists() or (output_dir / "adapter_config.json").exists()
+
+    # Verify model can be loaded
+    from transformers import AutoModelForCausalLM
+    try:
+        model = AutoModelForCausalLM.from_pretrained(str(output_dir), device_map="cpu")
+        assert model is not None
+    except Exception as e:
+        pytest.fail(f"Failed to load fine-tuned model: {e}")

@@ -336,3 +336,58 @@ device: "cpu"
     print(f"\nBase model: {base_text}")
     print(f"Fine-tuned: {ft_text}")
     print(f"Aligned: {aligned_text}")
+
+
+def test_checkpoint_resume(download_config, sample_finetune_data, tmp_path):
+    """Test checkpoint saving and resume functionality."""
+    from download import cli as download_cli
+    from finetune import cli as finetune_cli
+
+    # Download model
+    download_runner = CliRunner()
+    download_result = download_runner.invoke(download_cli, ["--config", download_config])
+    assert download_result.exit_code == 0
+
+    model_dir = tmp_path / "models" / "distilgpt2"
+
+    # Initial training with checkpoint
+    config = f"""
+model:
+  path: "{model_dir}"
+  base_model: "distilgpt2"
+
+dataset:
+  path: "{sample_finetune_data}"
+  format: "json"
+  text_field: "text"
+
+training:
+  method: "lora"
+  max_steps: 1
+  max_seq_length: 64
+  batch_size: 1
+  save_steps: 1
+  output_dir: "{tmp_path}/checkpoints/resume-test"
+
+device: "cpu"
+"""
+    config_file = tmp_path / "finetune.yaml"
+    config_file.write_text(config)
+
+    # Initial training
+    runner = CliRunner()
+    result = runner.invoke(finetune_cli, ["--config", str(config_file)])
+    assert result.exit_code == 0, f"Initial training failed: {result.output}"
+
+    # Verify checkpoint exists
+    checkpoint_dir = tmp_path / "checkpoints" / "resume-test" / "checkpoint-1"
+    assert checkpoint_dir.exists(), "Checkpoint not created"
+
+    # Resume from checkpoint
+    resume_result = runner.invoke(finetune_cli, [
+        "--config", str(config_file),
+        "--resume", str(checkpoint_dir)
+    ])
+
+    # Verify resume succeeded
+    assert resume_result.exit_code == 0, f"Resume failed: {resume_result.output}"

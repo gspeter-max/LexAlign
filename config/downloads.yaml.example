@@ -1,0 +1,35 @@
+# LexAlign Download Tool - Example Configuration
+# Copy this file to downloads.yaml and fill in your details
+
+# Hugging Face Authentication
+huggingface:
+  # Use environment variable for security
+  # Run: export HF_TOKEN="your_token_here"
+  token: "${HF_TOKEN}"
+
+# Models to download
+models:
+  # Example: Download a small model
+  # - repo: "gpt2"
+  #   files:
+  #     - "config.json"
+  #     - "pytorch_model.bin"
+  #     - "tokenizer.json"
+  #   output_dir: "./models/gpt2"
+
+  # Example: Download Llama model (requires access)
+  # - repo: "meta-llama/Llama-2-7b-hf"
+  #   files:
+  #     - "config.json"
+  #     - "tokenizer*.json"
+  #     - "pytorch_model*.bin"
+  #   output_dir: "./models/llama2-7b"
+
+# Datasets to download
+datasets:
+  # Example: Download dataset files
+  # - repo: "username/my-dataset"
+  #   files:
+  #     - "data/*.json"
+  #     - "data/*.csv"
+  #   output_dir: "./data/my-dataset"

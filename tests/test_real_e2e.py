@@ -113,10 +113,6 @@ training:
   max_steps: 1
   max_seq_length: 64
   batch_size: 1
-  gradient_accumulation_steps: 1
-  learning_rate: 3e-4
-  num_epochs: 1
-  save_steps: 1000
   output_dir: "{tmp_path}/checkpoints/finetuned"
 
 device: "cpu"
@@ -201,9 +197,6 @@ alignment:
   max_steps: 1
   max_seq_length: 64
   batch_size: 1
-  learning_rate: 1e-5
-  num_epochs: 1
-  beta: 0.1
   output_dir: "{tmp_path}/checkpoints/aligned"
 
 device: "cpu"

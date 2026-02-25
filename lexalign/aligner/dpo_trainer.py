@@ -2,8 +2,7 @@
 """DPO trainer wrapper for LexAlign."""
 
 from datasets import Dataset
-from transformers import TrainingArguments
-from trl import DPOTrainer
+from trl import DPOConfig, DPOTrainer
 
 
 class DPOTrainerWrapper:
@@ -25,7 +24,7 @@ class DPOTrainerWrapper:
         self.config = config
         self._trainer: DPOTrainer | None = None  # set during train()
 
-        self._training_args = TrainingArguments(
+        self._training_args = DPOConfig(
             output_dir=config["output_dir"],
             learning_rate=config["learning_rate"],
             per_device_train_batch_size=config["batch_size"],
@@ -37,6 +36,8 @@ class DPOTrainerWrapper:
             save_total_limit=3,
             logging_steps=10,
             remove_unused_columns=False,
+            beta=config["beta"],
+            loss_type=config["loss_type"],
         )
 
     def train(self, train_dataset: Dataset):
@@ -56,8 +57,6 @@ class DPOTrainerWrapper:
             model=self.model,
             ref_model=self.ref_model,
             args=self._training_args,
-            beta=self.config["beta"],
-            loss_type=self.config["loss_type"],
             tokenizer=self.tokenizer,
             train_dataset=train_dataset,
         )

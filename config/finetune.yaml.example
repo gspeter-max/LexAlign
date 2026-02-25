@@ -1,0 +1,45 @@
+# LexAlign Fine-Tuning Tool - Example Configuration
+# Copy this file to finetune.yaml and fill in your details
+
+# Model Configuration
+model:
+  path: "./models/gpt2"           # Path to downloaded model
+  base_model: "gpt2"               # Optional: HF repo ID for tokenizer
+
+# Dataset Configuration
+dataset:
+  path: "./data/my-dataset"        # Path to downloaded dataset
+  format: "auto"                   # auto, json, csv, jsonl
+  text_field: "text"               # Field name containing training text
+  train_split: "train"             # Dataset split to use
+
+# Training Configuration
+training:
+  method: "lora"                   # lora or qlora
+  output_dir: "./checkpoints/gpt2-finetuned"  # Optional
+
+  # LoRA/QLoRA parameters
+  lora_r: 16                       # LoRA rank
+  lora_alpha: 32                   # LoRA alpha
+  lora_dropout: 0.05               # LoRA dropout
+  target_modules:                  # Optional (auto-detected if omitted)
+    - "q_proj"
+    - "v_proj"
+
+  # QLoRA specific
+  quantization_bits: 4             # 4 or 8 (only for qlora)
+
+  # Training hyperparameters
+  learning_rate: 3e-4
+  batch_size: 4
+  gradient_accumulation_steps: 4
+  num_epochs: 3
+  warmup_steps: 100
+  weight_decay: 0.01
+
+  # Checkpointing
+  save_steps: 500                  # Save checkpoint every N steps
+  max_steps: null                  # Optional: override epoch-based
+
+# Hardware
+device: "cuda"                     # cuda or cpu

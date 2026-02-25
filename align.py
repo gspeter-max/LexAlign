@@ -1,5 +1,5 @@
-# align.py
 #!/usr/bin/env python3
+# align.py
 """LexAlign - Align models using DPO or GDPO."""
 
 import click

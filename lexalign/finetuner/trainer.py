@@ -1,5 +1,10 @@
+# lexalign/finetuner/trainer.py
+"""Fine-tuning trainer wrapping TRL SFTTrainer with LoRA/QLoRA support."""
+
+import logging
 from pathlib import Path
 from datetime import datetime
+
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments
 from trl import SFTTrainer
@@ -7,22 +12,23 @@ from trl import SFTTrainer
 from lexalign.finetuner.dataset_prep import DatasetPreparer, DatasetError
 from lexalign.finetuner.lora_config import LoraConfigBuilder
 
+logger = logging.getLogger(__name__)
+
 
 class TrainerError(Exception):
     """Training-related errors."""
-    pass
 
 
 class FinetuneTrainer:
     """
     Wrapper for TRL SFTTrainer with LoRA/QLoRA support.
 
-    SECURITY NOTE: This tool uses `trust_remote_code=True` when loading tokenizers,
-    which allows models to execute custom code from the Hugging Face Hub.
-    Only use this with models from trusted sources.
+    SECURITY NOTE: This tool uses `trust_remote_code=True` when loading
+    tokenizers, which allows models to execute custom code from the Hugging
+    Face Hub. Only use this with models from trusted sources.
     """
 
-    def __init__(self, config: dict, verbose: bool = False):
+    def __init__(self, config: dict, verbose: bool = False) -> None:
         """
         Initialize trainer with configuration.
 
@@ -34,7 +40,11 @@ class FinetuneTrainer:
         self.verbose = verbose
         self.device = config.get("device", "cpu")
 
-    def _validate_paths(self):
+    # ------------------------------------------------------------------
+    # Private helpers
+    # ------------------------------------------------------------------
+
+    def _validate_paths(self) -> None:
         """
         Validate that model and dataset paths exist.
 
@@ -45,14 +55,14 @@ class FinetuneTrainer:
         if not model_path.exists():
             raise TrainerError(
                 f"Model path not found: {model_path}\n"
-                f"Please run download.py first to download the model."
+                "Please run download.py first to download the model."
             )
 
         dataset_path = Path(self.config["dataset"]["path"])
         if not dataset_path.exists():
             raise TrainerError(
                 f"Dataset path not found: {dataset_path}\n"
-                f"Please run download.py first to download the dataset."
+                "Please run download.py first to download the dataset."
             )
 
     def _get_output_dir(self) -> str:
@@ -60,13 +70,12 @@ class FinetuneTrainer:
         Get output directory for checkpoints.
 
         Returns:
-            Output directory path
+            Output directory path string
         """
         training = self.config["training"]
-        if "output_dir" in training and training["output_dir"]:
+        if training.get("output_dir"):
             return training["output_dir"]
 
-        # Default: timestamp-based
         model_name = Path(self.config["model"]["path"]).name
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         return f"./checkpoints/{model_name}-{timestamp}"
@@ -76,18 +85,16 @@ class FinetuneTrainer:
         Load model and tokenizer with quantization if needed.
 
         Returns:
-            tuple: (model, tokenizer)
+            Tuple of (model, tokenizer)
         """
         model_path = self.config["model"]["path"]
         training = self.config["training"]
         method = training.get("method", "lora")
 
-        # Prepare model loading arguments
         model_kwargs = {
             "torch_dtype": torch.float16 if self.device == "cuda" else torch.float32,
         }
 
-        # Add quantization for QLoRA
         if method == "qlora":
             quant_bits = training.get("quantization_bits", 4)
             lora_builder = LoraConfigBuilder()
@@ -95,20 +102,14 @@ class FinetuneTrainer:
             model_kwargs.update(quantization_config)
             model_kwargs["device_map"] = "auto"
 
-        # Load model
-        model = AutoModelForCausalLM.from_pretrained(
-            model_path,
-            **model_kwargs
-        )
+        model = AutoModelForCausalLM.from_pretrained(model_path, **model_kwargs)
 
-        # Load tokenizer - use base_model if specified, otherwise use model_path
         tokenizer_path = self.config["model"].get("base_model", model_path)
         tokenizer = AutoTokenizer.from_pretrained(
             tokenizer_path,
-            trust_remote_code=True
+            trust_remote_code=True,
         )
 
-        # Set pad token if not present
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
 
@@ -143,6 +144,60 @@ class FinetuneTrainer:
             save_strategy="steps",
         )
 
+    def _build_trainer(self, output_dir: str) -> SFTTrainer:
+        """
+        Build and configure a ready-to-use SFTTrainer.
+
+        This shared factory is called by both ``train()`` and ``resume()``.
+
+        Args:
+            output_dir: Directory for checkpoints
+
+        Returns:
+            Configured SFTTrainer instance
+        """
+        model, tokenizer = self._load_model_and_tokenizer()
+
+        dataset_config = self.config["dataset"]
+        preparer = DatasetPreparer()
+        dataset = preparer.load_dataset(
+            dataset_config["path"],
+            dataset_config.get("format", "auto"),
+            dataset_config.get("text_field", "text"),
+            dataset_config.get("train_split", "train"),
+        )
+
+        training = self.config["training"]
+        lora_builder = LoraConfigBuilder()
+        lora_config = lora_builder.build(training)
+
+        training_args = self._prepare_training_arguments(output_dir)
+
+        return SFTTrainer(
+            model=model,
+            args=training_args,
+            train_dataset=dataset,
+            dataset_text_field=dataset_config.get("text_field", "text"),
+            peft_config=lora_config,
+            tokenizer=tokenizer,
+            max_seq_length=training.get("max_seq_length", 512),
+            packing=training.get("packing", False),
+        )
+
+    def _log_header(self, title: str, output_dir: str) -> None:
+        """Log a training header via the logger (replaces raw print())."""
+        sep = "=" * 60
+        logger.info(sep)
+        logger.info(title)
+        logger.info("Method: %s", self.config["training"].get("method", "lora").upper())
+        logger.info("Device: %s", self.device)
+        logger.info("Output: %s", output_dir)
+        logger.info(sep)
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
     def train(self) -> str:
         """
         Execute fine-tuning using TRL SFTTrainer.
@@ -157,59 +212,16 @@ class FinetuneTrainer:
         output_dir = self._get_output_dir()
 
         try:
-            # Load model and tokenizer
-            model, tokenizer = self._load_model_and_tokenizer()
-
-            # Load dataset
-            dataset_config = self.config["dataset"]
-            preparer = DatasetPreparer()
-            dataset = preparer.load_dataset(
-                dataset_config["path"],
-                dataset_config.get("format", "auto"),
-                dataset_config.get("text_field", "text"),
-                dataset_config.get("train_split", "train")
-            )
-
-            # Build LoRA configuration
-            training = self.config["training"]
-            lora_builder = LoraConfigBuilder()
-            lora_config = lora_builder.build(training)
-
-            # Prepare training arguments
-            training_args = self._prepare_training_arguments(output_dir)
-
-            # Create trainer
-            trainer = SFTTrainer(
-                model=model,
-                args=training_args,
-                train_dataset=dataset,
-                dataset_text_field=dataset_config.get("text_field", "text"),
-                peft_config=lora_config,
-                tokenizer=tokenizer,
-                max_seq_length=training.get("max_seq_length", 512),
-                packing=training.get("packing", False),
-            )
-
-            # Train
             if self.verbose:
-                print(f"\n{'='*60}")
-                print(f"Starting fine-tuning...")
-                print(f"Method: {training.get('method', 'lora').upper()}")
-                print(f"Device: {self.device}")
-                print(f"Output: {output_dir}")
-                print(f"{'='*60}\n")
+                self._log_header("Starting fine-tuning...", output_dir)
 
+            trainer = self._build_trainer(output_dir)
             trainer.train()
-
-            # Save final model
             trainer.save_model(output_dir)
-            tokenizer.save_pretrained(output_dir)
+            trainer.tokenizer.save_pretrained(output_dir)
 
             if self.verbose:
-                print(f"\n{'='*60}")
-                print(f"Training complete!")
-                print(f"Model saved to: {output_dir}")
-                print(f"{'='*60}\n")
+                logger.info("Training complete! Model saved to: %s", output_dir)
 
             return output_dir
 
@@ -227,61 +239,26 @@ class FinetuneTrainer:
 
         Returns:
             Output directory where checkpoints were saved
+
+        Raises:
+            TrainerError: If training fails
         """
         self._validate_paths()
         output_dir = self._get_output_dir()
 
         try:
-            # Load model and tokenizer
-            model, tokenizer = self._load_model_and_tokenizer()
-
-            # Load dataset
-            dataset_config = self.config["dataset"]
-            preparer = DatasetPreparer()
-            dataset = preparer.load_dataset(
-                dataset_config["path"],
-                dataset_config.get("format", "auto"),
-                dataset_config.get("text_field", "text"),
-                dataset_config.get("train_split", "train")
-            )
-
-            # Build LoRA configuration
-            training = self.config["training"]
-            lora_builder = LoraConfigBuilder()
-            lora_config = lora_builder.build(training)
-
-            # Prepare training arguments
-            training_args = self._prepare_training_arguments(output_dir)
-
-            # Create trainer
-            trainer = SFTTrainer(
-                model=model,
-                args=training_args,
-                train_dataset=dataset,
-                dataset_text_field=dataset_config.get("text_field", "text"),
-                peft_config=lora_config,
-                tokenizer=tokenizer,
-                max_seq_length=training.get("max_seq_length", 512),
-                packing=training.get("packing", False),
-            )
-
-            # Resume from checkpoint
             if self.verbose:
-                print(f"\n{'='*60}")
-                print(f"Resuming training from: {checkpoint_path}")
-                print(f"{'='*60}\n")
+                self._log_header(
+                    f"Resuming training from: {checkpoint_path}", output_dir
+                )
 
+            trainer = self._build_trainer(output_dir)
             trainer.train(resume_from_checkpoint=checkpoint_path)
-
-            # Save final model
             trainer.save_model(output_dir)
-            tokenizer.save_pretrained(output_dir)
+            trainer.tokenizer.save_pretrained(output_dir)
 
             if self.verbose:
-                print(f"\n{'='*60}")
-                print(f"Training complete!")
-                print(f"Model saved to: {output_dir}")
-                print(f"{'='*60}\n")
+                logger.info("Training complete! Model saved to: %s", output_dir)
 
             return output_dir
 

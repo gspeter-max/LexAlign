@@ -5,7 +5,7 @@ A CLI tool for downloading models and datasets from Hugging Face using declarati
 ## Installation
 
 ```bash
-pip install -r requirements.txt
+pip install -e ".[dev]"
 ```
 
 ## Quick Start
@@ -78,7 +78,7 @@ Fine-tune downloaded models using LoRA or QLoRA.
 ### Installation
 
 ```bash
-pip install -r requirements.txt
+pip install -e ".[dev]"
 ```
 
 ### Quick Start

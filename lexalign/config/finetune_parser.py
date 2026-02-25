@@ -1,16 +1,17 @@
+# lexalign/config/finetune_parser.py
+"""Fine-tuning configuration parser for LexAlign."""
+
 import yaml
 from typing import Dict, Any
 
-
-class ConfigError(Exception):
-    """Configuration errors."""
-    pass
+from lexalign.config.errors import ConfigError
+from lexalign.config.base_parser import BaseConfigParser
 
 
-class FinetuneConfigParser:
+class FinetuneConfigParser(BaseConfigParser):
     """Parse and validate fine-tuning configuration."""
 
-    DEFAULTS = {
+    DEFAULTS: Dict[str, Any] = {
         "dataset": {
             "format": "auto",
             "text_field": "text",
@@ -59,28 +60,15 @@ class FinetuneConfigParser:
 
         return config
 
-    def _validate_required_fields(self, config: Dict[str, Any]):
-        """Ensure all required top-level fields exist."""
-        for field in self.REQUIRED_FIELDS:
-            if field not in config:
-                raise ConfigError(f"Missing required field: {field}")
-
-    def _apply_defaults(self, config: Dict[str, Any]):
-        """Apply default values for optional fields."""
-        for section, defaults in self.DEFAULTS.items():
-            if section not in config:
-                config[section] = {}
-            for key, value in defaults.items():
-                if key not in config[section]:
-                    config[section][key] = value
-
-    def _validate_training_params(self, config: Dict[str, Any]):
+    def _validate_training_params(self, config: Dict[str, Any]) -> None:
         """Validate training-specific parameters."""
         training = config["training"]
         method = training.get("method", "lora")
 
         if method not in ("lora", "qlora"):
-            raise ConfigError(f"Invalid training method: {method}. Use 'lora' or 'qlora'.")
+            raise ConfigError(
+                f"Invalid training method: {method}. Use 'lora' or 'qlora'."
+            )
 
         if method == "qlora":
             bits = training.get("quantization_bits", 4)

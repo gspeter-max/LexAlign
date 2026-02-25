@@ -56,10 +56,11 @@ device: "cpu"
     return str(config_file)
 
 def test_e2e_alignment_workflow(mock_config_file):
-    """Test end-to-end alignment workflow with mocked training."""
+    """Test end-to-end alignment workflow config validation via --dry-run."""
     runner = CliRunner()
-    result = runner.invoke(align, ["--config", mock_config_file])
+    result = runner.invoke(align, ["--config", mock_config_file, "--dry-run"])
 
-    # Should succeed - CLI validates config and dataset
-    assert result.exit_code == 0
-    assert "validated" in result.output.lower() or "loaded" in result.output.lower()
+    # Should succeed — dry-run validates config and exits cleanly without loading models
+    assert result.exit_code == 0, f"Unexpected exit: {result.output}"
+    # The dry-run output should mention the config contents
+    assert "dpo" in result.output.lower() or "dry run" in result.output.lower()

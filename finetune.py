@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+"""LexAlign Fine-tuning CLI — fine-tune HuggingFace models with LoRA/QLoRA."""
+
 import click
 from pathlib import Path
 from rich.console import Console

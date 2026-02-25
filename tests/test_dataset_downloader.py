@@ -2,6 +2,11 @@ import pytest
 from lexalign.downloader.dataset_downloader import DatasetDownloader, DownloadError
 from lexalign.downloader.auth import AuthManager
 
+# NOTE: mocks target `base_downloader` because that's where
+# list_repo_files / hf_hub_download are imported after the BaseDownloader refactor.
+_BASE = "lexalign.downloader.base_downloader"
+
+
 def test_dataset_downloader_is_same_as_model():
     """Dataset downloader should reuse model downloader logic."""
     auth = AuthManager("test_token")
@@ -12,18 +17,20 @@ def test_dataset_downloader_is_same_as_model():
     assert hasattr(downloader, 'download_repo')
     assert hasattr(downloader, '_filter_by_patterns')
 
+
 def test_list_files_from_dataset_repo(mocker):
     auth = AuthManager("test_token")
     downloader = DatasetDownloader(auth)
 
     mock_list_files = mocker.patch(
-        'lexalign.downloader.dataset_downloader.list_repo_files',
+        f"{_BASE}.list_repo_files",
         return_value=["data/train.json", "data/test.json", "README.md"]
     )
 
     files = downloader.list_files("user/dataset")
     assert len(files) == 3
     mock_list_files.assert_called_once_with("user/dataset", repo_type="dataset", token="test_token")
+
 
 def test_filter_dataset_files_by_patterns():
     """Test filtering dataset files with glob patterns."""
@@ -47,6 +54,7 @@ def test_filter_dataset_files_by_patterns():
     assert "README.md" not in filtered
     assert "dataset_infos.json" not in filtered
 
+
 def test_filter_dataset_files_multiple_patterns():
     """Test filtering with multiple patterns."""
     auth = AuthManager("test_token")
@@ -67,12 +75,13 @@ def test_filter_dataset_files_multiple_patterns():
     assert "metadata.txt" in filtered
     assert "README.md" not in filtered
 
+
 def test_download_dataset_file_success(mocker, tmp_path):
     """Test downloading a single dataset file."""
     auth = AuthManager("test_token")
     downloader = DatasetDownloader(auth)
 
-    mock_download = mocker.patch('lexalign.downloader.dataset_downloader.hf_hub_download')
+    mock_download = mocker.patch(f"{_BASE}.hf_hub_download")
 
     downloader.download_file(
         repo_id="user/dataset",
@@ -83,13 +92,14 @@ def test_download_dataset_file_success(mocker, tmp_path):
 
     mock_download.assert_called_once()
 
+
 def test_download_dataset_file_failure(mocker, tmp_path):
     """Test download failure handling."""
     auth = AuthManager("test_token")
     downloader = DatasetDownloader(auth)
 
     mocker.patch(
-        'lexalign.downloader.dataset_downloader.hf_hub_download',
+        f"{_BASE}.hf_hub_download",
         side_effect=Exception("Network error")
     )
 
@@ -101,13 +111,14 @@ def test_download_dataset_file_failure(mocker, tmp_path):
             local_dir=str(tmp_path)
         )
 
+
 def test_download_dataset_repo_dry_run(mocker):
     """Test dry run for dataset repository."""
     auth = AuthManager("test_token")
     downloader = DatasetDownloader(auth)
 
     mocker.patch(
-        'lexalign.downloader.dataset_downloader.list_repo_files',
+        f"{_BASE}.list_repo_files",
         return_value=["data/train.json", "data/test.json", "README.md"]
     )
 
@@ -124,13 +135,14 @@ def test_download_dataset_repo_dry_run(mocker):
     assert result["downloaded"] == 0
     assert result["repo"] == "user/dataset"
 
+
 def test_download_dataset_repo_no_matches(mocker):
     """Test when no files match patterns."""
     auth = AuthManager("test_token")
     downloader = DatasetDownloader(auth)
 
     mocker.patch(
-        'lexalign.downloader.dataset_downloader.list_repo_files',
+        f"{_BASE}.list_repo_files",
         return_value=["README.md", "dataset_infos.json"]
     )
 
@@ -144,17 +156,18 @@ def test_download_dataset_repo_no_matches(mocker):
     assert len(result["files"]) == 0
     assert result["downloaded"] == 0
 
+
 def test_download_dataset_repo_with_download(mocker, tmp_path):
     """Test actual download with mocked HF hub."""
     auth = AuthManager("test_token")
     downloader = DatasetDownloader(auth)
 
     mocker.patch(
-        'lexalign.downloader.dataset_downloader.list_repo_files',
+        f"{_BASE}.list_repo_files",
         return_value=["data/train.json", "data/test.json"]
     )
 
-    mock_download = mocker.patch('lexalign.downloader.dataset_downloader.hf_hub_download')
+    mock_download = mocker.patch(f"{_BASE}.hf_hub_download")
 
     result = downloader.download_repo(
         repo_id="user/dataset",

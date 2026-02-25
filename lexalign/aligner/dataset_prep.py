@@ -1,76 +1,91 @@
 # lexalign/aligner/dataset_prep.py
+"""Preference dataset loading and validation for alignment training."""
+
 from pathlib import Path
-from datasets import load_dataset
-import json
+from typing import Dict, Any
+
+from datasets import Dataset, load_dataset
 
 
 class DatasetError(Exception):
     """Dataset-related errors."""
-    pass
 
 
 class PreferenceDataset:
-    """Load and validate preference datasets."""
+    """Load and validate preference datasets for DPO/GDPO alignment."""
 
-    def load_and_validate(self, config: dict) -> object:
+    _FORMAT_MAP: Dict[str, str] = {
+        ".json": "json",
+        ".jsonl": "jsonl",
+        ".csv": "csv",
+    }
+
+    def load_and_validate(self, config: Dict[str, Any]) -> Dataset:
         """
-        Load and validate preference dataset.
+        Load and validate a preference dataset.
 
         Args:
-            config: Dataset configuration dict
+            config: Dataset configuration dict with keys:
+                path, format, prompt_field, chosen_field, rejected_field
 
         Returns:
-            datasets.Dataset object
+            Loaded and validated ``datasets.Dataset`` object
 
         Raises:
-            DatasetError: If validation fails
+            DatasetError: If loading or validation fails
         """
         path = config["path"]
         fmt = config.get("format", "auto")
 
-        # Auto-detect format
         if fmt == "auto":
             fmt = self._detect_format(path)
 
-        # Load dataset
         try:
-            if fmt == "json":
-                dataset = load_dataset("json", data_files=path, split="train")
-            elif fmt == "jsonl":
+            if fmt in ("json", "jsonl"):
                 dataset = load_dataset("json", data_files=path, split="train")
             elif fmt == "csv":
                 dataset = load_dataset("csv", data_files=path, split="train")
             else:
-                raise DatasetError(f"Unsupported format: {fmt}")
+                raise DatasetError(f"Unsupported format: {fmt!r}")
+        except DatasetError:
+            raise
         except Exception as e:
             raise DatasetError(f"Failed to load dataset: {e}")
 
-        # Validate required fields
         self._validate_fields(dataset, config)
-
         return dataset
 
     def _detect_format(self, path: str) -> str:
-        """Auto-detect file format from extension."""
+        """Auto-detect file format from extension.
+
+        Args:
+            path: Path to the dataset file
+
+        Returns:
+            Format string: "json", "jsonl", or "csv". Defaults to "json".
+        """
         ext = Path(path).suffix.lower()
-        format_map = {".json": "json", ".jsonl": "jsonl", ".csv": "csv"}
-        return format_map.get(ext, "json")
+        return self._FORMAT_MAP.get(ext, "json")
 
-    def _validate_fields(self, dataset, config: dict):
-        """Validate required fields exist in dataset."""
-        prompt_field = config["prompt_field"]
-        chosen_field = config["chosen_field"]
-        rejected_field = config["rejected_field"]
+    def _validate_fields(
+        self, dataset: Dataset, config: Dict[str, Any]
+    ) -> None:
+        """Validate required fields exist in dataset columns.
 
+        Args:
+            dataset: Loaded dataset
+            config: Dataset configuration dict
+
+        Raises:
+            DatasetError: If required columns are missing
+        """
+        required = [
+            config["prompt_field"],
+            config["chosen_field"],
+            config["rejected_field"],
+        ]
         columns = dataset.column_names
-
-        missing = []
-        if prompt_field not in columns:
-            missing.append(prompt_field)
-        if chosen_field not in columns:
-            missing.append(chosen_field)
-        if rejected_field not in columns:
-            missing.append(rejected_field)
+        missing = [f for f in required if f not in columns]
 
         if missing:
             raise DatasetError(

@@ -1,19 +1,29 @@
-from peft import LoraConfig, get_peft_model, TaskType
+# lexalign/finetuner/lora_config.py
+"""LoRA and QLoRA configuration builder for LexAlign."""
+
+from typing import Any, Dict, Optional
+
+from peft import LoraConfig, TaskType
 
 
 class LoraConfigBuilder:
-    """Build LoRA/QLoRA configurations."""
+    """Build LoRA/QLoRA PEFT configurations."""
 
-    def build(self, training_params: dict, quantization_bits: int = None):
+    def build(
+        self,
+        training_params: Dict[str, Any],
+        quantization_bits: Optional[int] = None,  # reserved for future use
+    ) -> LoraConfig:
         """
-        Build LoRA configuration.
+        Build a LoRA configuration from training params.
 
         Args:
             training_params: Training configuration dictionary
-            quantization_bits: Quantization bits (4 or 8) for QLoRA
+            quantization_bits: Reserved — quantization is handled separately
+                via :meth:`get_quantization_config`.
 
         Returns:
-            LoraConfig instance
+            Configured :class:`peft.LoraConfig` instance
         """
         return LoraConfig(
             task_type=TaskType.CAUSAL_LM,
@@ -24,22 +34,21 @@ class LoraConfigBuilder:
             bias="none",
         )
 
-    def get_quantization_config(self, bits: int) -> dict:
+    def get_quantization_config(self, bits: int) -> Dict[str, bool]:
         """
-        Get quantization configuration for QLoRA.
+        Get quantization configuration dict for QLoRA.
 
         Args:
-            bits: Quantization bits (4 or 8)
+            bits: Quantization bits — must be 4 or 8
 
         Returns:
-            Dictionary with quantization settings
+            Dict suitable for unpacking into ``from_pretrained`` kwargs
 
         Raises:
             ValueError: If bits is not 4 or 8
         """
         if bits == 4:
             return {"load_in_4bit": True}
-        elif bits == 8:
+        if bits == 8:
             return {"load_in_8bit": True}
-        else:
-            raise ValueError(f"Quantization must be 4 or 8, got {bits}")
+        raise ValueError(f"Quantization must be 4 or 8, got {bits}")

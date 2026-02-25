@@ -3,13 +3,17 @@ from pathlib import Path
 from lexalign.downloader.model_downloader import ModelDownloader, DownloadError
 from lexalign.downloader.auth import AuthManager
 
+# NOTE: mocks target `base_downloader` because that's where
+# list_repo_files / hf_hub_download are imported after the BaseDownloader refactor.
+_BASE = "lexalign.downloader.base_downloader"
+
+
 def test_list_files_from_repo(mocker):
     auth = AuthManager("test_token")
     downloader = ModelDownloader(auth)
 
-    # Mock hf_hub_url to return file list
     mock_list_files = mocker.patch(
-        'lexalign.downloader.model_downloader.list_repo_files',
+        f"{_BASE}.list_repo_files",
         return_value=["config.json", "pytorch_model.bin", "tokenizer.json"]
     )
 
@@ -17,6 +21,7 @@ def test_list_files_from_repo(mocker):
     assert len(files) == 3
     assert "config.json" in files
     mock_list_files.assert_called_once_with("org/model", repo_type="model", token="test_token")
+
 
 def test_filter_files_by_patterns():
     auth = AuthManager("test_token")
@@ -39,11 +44,12 @@ def test_filter_files_by_patterns():
     assert "tokenizer.json" in filtered
     assert "training_args.bin" not in filtered
 
+
 def test_download_file_success(mocker, tmp_path):
     auth = AuthManager("test_token")
     downloader = ModelDownloader(auth)
 
-    mock_download = mocker.patch('lexalign.downloader.model_downloader.hf_hub_download')
+    mock_download = mocker.patch(f"{_BASE}.hf_hub_download")
 
     downloader.download_file(
         repo_id="org/model",
@@ -54,12 +60,13 @@ def test_download_file_success(mocker, tmp_path):
 
     mock_download.assert_called_once()
 
+
 def test_download_file_failure(mocker, tmp_path):
     auth = AuthManager("test_token")
     downloader = ModelDownloader(auth)
 
-    mock_download = mocker.patch(
-        'lexalign.downloader.model_downloader.hf_hub_download',
+    mocker.patch(
+        f"{_BASE}.hf_hub_download",
         side_effect=Exception("Network error")
     )
 
@@ -71,12 +78,13 @@ def test_download_file_failure(mocker, tmp_path):
             local_dir=str(tmp_path)
         )
 
+
 def test_download_repo_dry_run(mocker):
     auth = AuthManager("test_token")
     downloader = ModelDownloader(auth)
 
-    mock_list = mocker.patch(
-        'lexalign.downloader.model_downloader.list_repo_files',
+    mocker.patch(
+        f"{_BASE}.list_repo_files",
         return_value=["config.json", "model.bin"]
     )
 

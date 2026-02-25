@@ -1,19 +1,19 @@
 # lexalign/config/align_parser.py
+"""Alignment configuration parser for LexAlign."""
+
 import yaml
-from typing import Dict, Any
 from pathlib import Path
 from datetime import datetime
+from typing import Dict, Any
+
+from lexalign.config.errors import ConfigError
+from lexalign.config.base_parser import BaseConfigParser
 
 
-class ConfigError(Exception):
-    """Configuration errors."""
-    pass
-
-
-class AlignConfigParser:
+class AlignConfigParser(BaseConfigParser):
     """Parse and validate alignment configuration."""
 
-    DEFAULTS = {
+    DEFAULTS: Dict[str, Any] = {
         "dataset": {
             "format": "auto",
             "prompt_field": "prompt",
@@ -64,40 +64,33 @@ class AlignConfigParser:
 
         self._validate_required_fields(config)
         self._apply_defaults(config)
+        self._generate_output_dir(config)
         self._validate_alignment_params(config)
 
         return config
 
-    def _validate_required_fields(self, config: Dict[str, Any]):
-        """Ensure all required top-level fields exist."""
-        for field in self.REQUIRED_FIELDS:
-            if field not in config:
-                raise ConfigError(f"Missing required field: {field}")
-
-    def _apply_defaults(self, config: Dict[str, Any]):
-        """Apply default values for optional fields."""
-        for section, defaults in self.DEFAULTS.items():
-            if section not in config:
-                config[section] = {}
-            for key, value in defaults.items():
-                if key not in config[section]:
-                    config[section][key] = value
-
-        # Generate default output_dir if not specified
+    def _generate_output_dir(self, config: Dict[str, Any]) -> None:
+        """Generate default output_dir if not specified."""
         if "output_dir" not in config["alignment"]:
             model_name = Path(config["model"]["path"]).name
             timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-            config["alignment"]["output_dir"] = f"./checkpoints/{model_name}-aligned-{timestamp}"
+            config["alignment"]["output_dir"] = (
+                f"./checkpoints/{model_name}-aligned-{timestamp}"
+            )
 
-    def _validate_alignment_params(self, config: Dict[str, Any]):
+    def _validate_alignment_params(self, config: Dict[str, Any]) -> None:
         """Validate alignment-specific parameters."""
         alignment = config["alignment"]
         method = alignment.get("method", "dpo")
 
         if method not in ("dpo", "gdpo"):
-            raise ConfigError(f"Invalid alignment method: {method}. Use 'dpo' or 'gdpo'.")
+            raise ConfigError(
+                f"Invalid alignment method: {method}. Use 'dpo' or 'gdpo'."
+            )
 
         if method == "gdpo":
             group_delay_size = alignment.get("group_delay_size", 4)
             if group_delay_size < 2:
-                raise ConfigError(f"group_delay_size must be >= 2, got {group_delay_size}")
+                raise ConfigError(
+                    f"group_delay_size must be >= 2, got {group_delay_size}"
+                )

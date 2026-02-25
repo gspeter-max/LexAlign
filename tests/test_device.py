@@ -57,3 +57,36 @@ def test_cuda_available_no_fallback(mocker):
 
     assert device == "cuda"
     assert fell_back is False
+
+
+def test_get_device_none_returns_flat_tuple_not_nested(mocker):
+    """Regression: get_device(None) was returning ((str, bool), False) — a nested tuple.
+
+    This happened because detect_device() already returns a (str, bool) tuple,
+    and get_device() was wrapping it again with ', False'.
+    """
+    mock_torch = mocker.patch('lexalign.utils.device.torch')
+    mock_torch.cuda.is_available.return_value = True
+
+    manager = DeviceManager()
+    result = manager.get_device(None)
+
+    # Must unpack as a flat two-tuple — not a nested structure
+    assert len(result) == 2, f"Expected 2-tuple, got {len(result)}-tuple: {result}"
+    device, fell_back = result
+    assert device == "cuda"
+    assert fell_back is False
+    assert isinstance(device, str), f"device must be str, got {type(device)}"
+    assert isinstance(fell_back, bool), f"fell_back must be bool, got {type(fell_back)}"
+
+
+def test_get_device_none_cpu_returns_flat_tuple(mocker):
+    """Regression companion: same check with CUDA unavailable."""
+    mock_torch = mocker.patch('lexalign.utils.device.torch')
+    mock_torch.cuda.is_available.return_value = False
+
+    manager = DeviceManager()
+    device, fell_back = manager.get_device(None)
+
+    assert device == "cpu"
+    assert fell_back is False

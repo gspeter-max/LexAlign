@@ -9,7 +9,7 @@ pytestmark = [
     pytest.mark.integration,
     pytest.mark.skipif(
         not os.environ.get("HF_TOKEN"),
-        reason="HF_TOKEN environment variable not set (use: export HF_TOKEN=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)"
+        reason="HF_TOKEN environment variable not set"
     )
 ]
 
@@ -47,9 +47,10 @@ def sample_dpo_data(tmp_path):
 @pytest.fixture
 def download_config(tmp_path):
     """Create download config for distilgpt2."""
+    hf_token = os.environ.get("HF_TOKEN", "")
     config = f"""
 huggingface:
-  token: "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"
+  token: "{hf_token}"
 
 models:
   - repo: "distilgpt2"

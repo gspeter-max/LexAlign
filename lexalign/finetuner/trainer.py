@@ -177,11 +177,8 @@ class FinetuneTrainer:
             model=model,
             args=training_args,
             train_dataset=dataset,
-            dataset_text_field=dataset_config.get("text_field", "text"),
             peft_config=lora_config,
-            tokenizer=tokenizer,
-            max_seq_length=training.get("max_seq_length", 512),
-            packing=training.get("packing", False),
+            processing_class=tokenizer,
         )
 
     def _log_header(self, title: str, output_dir: str) -> None:

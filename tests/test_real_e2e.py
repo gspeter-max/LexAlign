@@ -9,7 +9,7 @@ pytestmark = [
     pytest.mark.integration,
     pytest.mark.skipif(
         not os.environ.get("HF_TOKEN"),
-        reason="HF_TOKEN environment variable not set (use: export HF_TOKEN=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)"
+        reason="HF_TOKEN environment variable not set (use: export HF_TOKEN=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)"
     )
 ]
 
@@ -49,13 +49,13 @@ def download_config(tmp_path):
     """Create download config for distilgpt2."""
     config = f"""
 huggingface:
-  token: "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"
+  token: "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"
 
 models:
   - repo: "distilgpt2"
     files:
       - "config.json"
-      - "pytorch_model.bin"
+      - "model.safetensors"
       - "tokenizer.json"
       - "vocab.json"
       - "merges.txt"
@@ -80,7 +80,7 @@ def test_download_distilgpt2(download_config, tmp_path):
     model_dir = tmp_path / "models" / "distilgpt2"
     assert model_dir.exists(), "Model directory not created"
     assert (model_dir / "config.json").exists(), "config.json missing"
-    assert (model_dir / "pytorch_model.bin").exists(), "pytorch_model.bin missing"
+    assert (model_dir / "model.safetensors").exists(), "model.safetensors missing"
 
     # Verify tokenizer files exist
     assert (model_dir / "tokenizer.json").exists() or (model_dir / "tokenizer_config.json").exists()

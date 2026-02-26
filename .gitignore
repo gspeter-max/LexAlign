@@ -46,3 +46,12 @@ htmlcov/
 
 # HF Cache
 .cache/
+
+# Node.js
+node_modules/
+package-lock.json
+
+# Frontend artifacts
+frontend/playwright-report/
+frontend/test-results/
+*.log
